@@ -1,0 +1,101 @@
+---
+title: "Global Trends Analysis"
+author: "Madison McCann"
+date: "2025-12-08"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+library(scales)
+
+```
+Introduction
+
+The aviation industry has witnessed a paradox: as the number of passengers carried has skyrocketed, the rate of fatalities and accidents has plummeted. This report investigates the historical trajectory of aviation safety compared to global tourism expansion between 1970 and 2020. My goal is to determine if the "fear of flying" is supported by data in the modern era.
+
+Data
+
+-air-passengers-carried.csv: Total volume of global air travelers.
+-aviation-fatalities-per-million-passengers.csv: Standardized safety metric for loss of life.
+-fatal-airliner-accidents-per-million-flights.csv: Standardized safety metric for mechanical/human failure.
+-international-tourist-arrivals.csv: General growth of global tourism.
+
+```{r}
+
+# Load raw datasets
+passengers_raw <- read_csv("air-passengers-carried.csv")
+safety_raw <- read_csv("aviation-fatalities-per-million-passengers.csv")
+accidents_raw <- read_csv("fatal-airliner-accidents-per-million-flights.csv")
+
+# Process and merge into a single dataframe 'df'
+# We filter for the 'World' aggregate and rename columns for clarity
+df <- passengers_raw %>%
+  filter(Entity == "World") %>%
+  rename(passengers = 4) %>%
+  inner_join(
+    safety_raw %>% filter(Entity == "World") %>% rename(fatality_rate = 4), 
+    by = "Year"
+  ) %>%
+  inner_join(
+    accidents_raw %>% filter(Entity == "World") %>% rename(accident_rate = 4), 
+    by = "Year"
+  ) %>%
+  select(Year, passengers, fatality_rate, accident_rate)
+
+
+head(df)
+```
+
+Findings
+
+Chart 1: Global Passenger Volume Growth
+Flying has truly entered its "Golden Age" of accessibility. The Chart below shows the transition from roughly 300 million to over 4 billon annual passengers.
+
+```{r}
+ggplot(df, aes(x = Year, y = passengers)) +
+  geom_area(fill = "steelblue", alpha = 0.5) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(title = "Total Global Air Passengers Carried (1970-2019)",
+       y = "Annual Passengers", 
+       x = "Year") +
+  theme_minimal()
+```
+
+Visual 2: The Safety Maturity Trend
+Despite the congestion shown above, the "standardized risk" (deaths per million) has reached an L-shaped curve, flattening significantly after the late 1990s.
+
+```{r}
+ggplot(df, aes(x = Year, y = fatality_rate)) +
+  geom_line(color = "red", size = 1) +
+  geom_smooth(method = "loess", color = "black", linetype = "dashed", se = FALSE) +
+  labs(title = "Fatality Rate per Million Passengers",
+       y = "Deaths per Million", 
+       x = "Year") +
+  theme_minimal()
+```
+Table: Comparison by Decade
+The following table summarizes the data using decadal averages to highlight the long-term shifts in scale and safety.
+
+```{r}
+df %>%
+  mutate(Decade = paste0(floor(Year/10)*10, "s")) %>%
+  group_by(Decade) %>%
+  summarise(
+    Avg_Passengers_Billions = round(mean(passengers)/1e9, 2),
+    Avg_Fatality_Rate = round(mean(fatality_rate), 2)
+  ) %>%
+  kable(caption = "Growth in Global Flight vs. Standardization of Safety Risk")
+```
+
+Curiosity & Scepticism
+Scepticism: One might wonder if better safety is just a result of luck or bigger planes. However, our internal comparison of fatality rates against accident_rate shows that actual technical failures (accidents per million flights) have fallen alongside passenger deaths. This confirms that systemic engineering and regulation—rather than chance—are driving these trends.
+
+Conclusion
+Aviation is significantly safer today than at any point in the 20th century. While we fly 15 times more than our predecessors in the 1970s, our individual risk is a fraction of what it was then. Future research should look into whether modern pilot shortages or extreme weather patterns might threaten this stability.
+
