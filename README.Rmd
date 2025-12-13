@@ -1,5 +1,5 @@
 ---
-title: "Global Trends Analysis"
+title: ""
 author: "Madison McCann"
 date: "2025-12-08"
 output: github_document
@@ -8,94 +8,82 @@ output: github_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
 ```{r}
 library(tidyverse)
-library(ggplot2)
-library(knitr)
-library(scales)
+
+df <- read.csv("top-500-novels-metadata_2025-01-11.csv")
+
+df <- df |>
+  mutate(
+    publication_century = case_when(
+      pub_year <= 1700 ~ "17th Century and Earlier",
+      pub_year <= 1800 ~ "18th Century",
+      pub_year <= 1900 ~ "19th Century",
+      pub_year <= 2000 ~ "20th Century",
+      TRUE ~ "21st Century"
+    )
+  )
+
+century_order <- c("17th Century and Earlier", "18th Century", "19th Century", "20th Century", "21st Century")
+df$publication_century <- factor(df$publication_century, levels = century_order, ordered = TRUE)
 
 ```
-Introduction
-
-The aviation industry has witnessed a paradox: as the number of passengers carried has skyrocketed, the rate of fatalities and accidents has plummeted. This report investigates the historical trajectory of aviation safety compared to global tourism expansion between 1970 and 2020. My goal is to determine if the "fear of flying" is supported by data in the modern era.
-
-Data
-
--air-passengers-carried.csv: Total volume of global air travelers.
--aviation-fatalities-per-million-passengers.csv: Standardized safety metric for loss of life.
--fatal-airliner-accidents-per-million-flights.csv: Standardized safety metric for mechanical/human failure.
--international-tourist-arrivals.csv: General growth of global tourism.
 
 ```{r}
+#ANALYSIS QUESTION 1: How has the distribution of top-ranked novel's publication years changed over time?
 
-# Load raw datasets
-passengers_raw <- read_csv("air-passengers-carried.csv")
-safety_raw <- read_csv("aviation-fatalities-per-million-passengers.csv")
-accidents_raw <- read_csv("fatal-airliner-accidents-per-million-flights.csv")
+century_counts <- df |>
+  count(publication_century, name = "novel_count")
 
-# Process and merge into a single dataframe 'df'
-# We filter for the 'World' aggregate and rename columns for clarity
-df <- passengers_raw %>%
-  filter(Entity == "World") %>%
-  rename(passengers = 4) %>%
-  inner_join(
-    safety_raw %>% filter(Entity == "World") %>% rename(fatality_rate = 4), 
-    by = "Year"
-  ) %>%
-  inner_join(
-    accidents_raw %>% filter(Entity == "World") %>% rename(accident_rate = 4), 
-    by = "Year"
-  ) %>%
-  select(Year, passengers, fatality_rate, accident_rate)
-
-
-head(df)
+print("Novel Counts by Publication Century:")
+print (century_counts)
 ```
-
-Findings
-
-Chart 1: Global Passenger Volume Growth
-Flying has truly entered its "Golden Age" of accessibility. The Chart below shows the transition from roughly 300 million to over 4 billon annual passengers.
 
 ```{r}
-ggplot(df, aes(x = Year, y = passengers)) +
-  geom_area(fill = "steelblue", alpha = 0.5) +
-  scale_y_continuous(labels = label_comma()) +
-  labs(title = "Total Global Air Passengers Carried (1970-2019)",
-       y = "Annual Passengers", 
-       x = "Year") +
-  theme_minimal()
-```
+#VISUAL 1: BAR CHART OF NOVELS BY PUBLICATION CENTURY
+pub_year_plot <- ggplot(century_counts, aes(x = publication_century, y = novel_count, fill = publication_century)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = novel_count), vjust = -0.5, size = 3) +
+  labs(
+    title = "Distribution of Top 500 Novels by Publication Century",
+    x = "Publication Century",
+    y = "Number of Novels",
+    fill = "Century"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
 
-Visual 2: The Safety Maturity Trend
-Despite the congestion shown above, the "standardized risk" (deaths per million) has reached an L-shaped curve, flattening significantly after the late 1990s.
+ggsave("novels_by_century_bar_char.png", plot = pub_year_plot, width = 7, height = 5)
+
+```
 
 ```{r}
-ggplot(df, aes(x = Year, y = fatality_rate)) +
-  geom_line(color = "red", size = 1) +
-  geom_smooth(method = "loess", color = "black", linetype = "dashed", se = FALSE) +
-  labs(title = "Fatality Rate per Million Passengers",
-       y = "Deaths per Million", 
-       x = "Year") +
-  theme_minimal()
+#ANALYSIS QUESTION 2: Is there a relationship between a novel's genre and its Goodreads Average Rating?
+
+top_genres <- df |>
+  count(genre, sort = TRUE)|>
+  slice_head(n = 5)|>
+  pull(genre)
+
+df_top_genres <- df |>
+  filter(genre %in% top_genres)
+
+df_top_genres$genre <- factor(df_top_genres$genre, levels = rev(top_genres))
+
 ```
-Table: Comparison by Decade
-The following table summarizes the data using decadal averages to highlight the long-term shifts in scale and safety.
 
 ```{r}
-df %>%
-  mutate(Decade = paste0(floor(Year/10)*10, "s")) %>%
-  group_by(Decade) %>%
-  summarise(
-    Avg_Passengers_Billions = round(mean(passengers)/1e9, 2),
-    Avg_Fatality_Rate = round(mean(fatality_rate), 2)
-  ) %>%
-  kable(caption = "Growth in Global Flight vs. Standardization of Safety Risk")
+#VISUAL 2: BOX PLOT OF AVERAGE RATING BY TOP 5 GENRE
+
+genre_rating_plot <- ggplot(df_top_genres, aes(x = gr_avg_rating, y = genre, fill = genre)) +
+  geom_boxplot() +
+  labs(
+    title = "Goodreads Average Taing Distribtuion for Top 5 Genres"
+  )
 ```
 
-Curiosity & Scepticism
-Scepticism: One might wonder if better safety is just a result of luck or bigger planes. However, our internal comparison of fatality rates against accident_rate shows that actual technical failures (accidents per million flights) have fallen alongside passenger deaths. This confirms that systemic engineering and regulation—rather than chance—are driving these trends.
-
-Conclusion
-Aviation is significantly safer today than at any point in the 20th century. While we fly 15 times more than our predecessors in the 1970s, our individual risk is a fraction of what it was then. Future research should look into whether modern pilot shortages or extreme weather patterns might threaten this stability.
 
