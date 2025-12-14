@@ -1,4 +1,4 @@
-Global Trends Analysis
+Historical Analysis of Novels
 ================
 Madison McCann
 2025-12-08
@@ -20,184 +20,231 @@ library(tidyverse)
 
 ``` r
 library(ggplot2)
-library(knitr)
-library(scales)
+
+df <- read.csv("top-500-novels-metadata_2025-01-11.csv")
+
+df <- df |>
+  mutate(
+    publication_century = case_when(
+      pub_year <= 1700 ~ "17th Century and Earlier",
+      pub_year <= 1800 ~ "18th Century",
+      pub_year <= 1900 ~ "19th Century",
+      pub_year <= 2000 ~ "20th Century",
+      TRUE ~ "21st Century"
+    )
+  )
+
+century_order <- c("17th Century and Earlier", "18th Century", "19th Century", "20th Century", "21st Century")
+df$publication_century <- factor(df$publication_century, levels = century_order, ordered = TRUE)
+
+df <- df |>
+  mutate(
+    oclc_holdings_clean = as.numeric(gsub(",", "", as.character(oclc_holdings))),
+    gr_num_ratings_clean = as.numeric(gsub(",", "", gr_num_ratings))
+  )
 ```
 
-    ## 
-    ## Attaching package: 'scales'
-    ## 
-    ## The following object is masked from 'package:purrr':
-    ## 
-    ##     discard
-    ## 
-    ## The following object is masked from 'package:readr':
-    ## 
-    ##     col_factor
-
-Introduction
-
-The aviation industry has witnessed a paradox: as the number of
-passengers carried has skyrocketed, the rate of fatalities and accidents
-has plummeted. This report investigates the historical trajectory of
-aviation safety compared to global tourism expansion between 1970 and
-2020. My goal is to determine if the “fear of flying” is supported by
-data in the modern era.
-
-Data
-
--air-passengers-carried.csv: Total volume of global air travelers.
--aviation-fatalities-per-million-passengers.csv: Standardized safety
-metric for loss of life.
--fatal-airliner-accidents-per-million-flights.csv: Standardized safety
-metric for mechanical/human failure.
--international-tourist-arrivals.csv: General growth of global tourism.
-
 ``` r
-# Load raw datasets
-passengers_raw <- read_csv("air-passengers-carried.csv")
+#ANALYSIS QUESTION 1: How has the distribution of top-ranked novel's publication years changed over time?
+
+century_counts <- df |>
+  count(publication_century, name = "novel_count")
+
+print("Novel Counts by Publication Century:")
 ```
 
-    ## Rows: 8189 Columns: 4
-    ## ── Column specification ────────────────────────────────────────────────────────
-    ## Delimiter: ","
-    ## chr (2): Entity, Code
-    ## dbl (2): Year, Air transport, passengers carried
-    ## 
-    ## ℹ Use `spec()` to retrieve the full column specification for this data.
-    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+    ## [1] "Novel Counts by Publication Century:"
 
 ``` r
-safety_raw <- read_csv("aviation-fatalities-per-million-passengers.csv")
+print (century_counts)
 ```
 
-    ## Rows: 50 Columns: 4
-    ## ── Column specification ────────────────────────────────────────────────────────
-    ## Delimiter: ","
-    ## chr (2): Entity, Code
-    ## dbl (2): Year, Fatalities per million passengers
-    ## 
-    ## ℹ Use `spec()` to retrieve the full column specification for this data.
-    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+    ##        publication_century novel_count
+    ## 1 17th Century and Earlier           7
+    ## 2             18th Century          11
+    ## 3             19th Century         108
+    ## 4             20th Century         294
+    ## 5             21st Century          80
 
 ``` r
-accidents_raw <- read_csv("fatal-airliner-accidents-per-million-flights.csv")
-```
+#VISUAL 1: BAR CHART OF NOVELS BY PUBLICATION CENTURY
+pub_year_plot <- ggplot(century_counts, aes(x = publication_century, y = novel_count, fill = publication_century)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = novel_count), vjust = -0.5, size = 3) +
+  labs(
+    title = "Distribution of Top 500 Novels by Publication Century",
+    x = "Publication Century",
+    y = "Number of Novels",
+    fill = "Century"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
 
-    ## Rows: 50 Columns: 4
-    ## ── Column specification ────────────────────────────────────────────────────────
-    ## Delimiter: ","
-    ## chr (2): Entity, Code
-    ## dbl (2): Year, Fatal accidents per million commercial flights
-    ## 
-    ## ℹ Use `spec()` to retrieve the full column specification for this data.
-    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
-
-``` r
-# Process and merge into a single dataframe 'df'
-# We filter for the 'World' aggregate and rename columns for clarity
-df <- passengers_raw %>%
-  filter(Entity == "World") %>%
-  rename(passengers = 4) %>%
-  inner_join(
-    safety_raw %>% filter(Entity == "World") %>% rename(fatality_rate = 4), 
-    by = "Year"
-  ) %>%
-  inner_join(
-    accidents_raw %>% filter(Entity == "World") %>% rename(accident_rate = 4), 
-    by = "Year"
-  ) %>%
-  select(Year, passengers, fatality_rate, accident_rate)
-
-
-head(df)
-```
-
-    ## # A tibble: 6 × 4
-    ##    Year passengers fatality_rate accident_rate
-    ##   <dbl>      <dbl>         <dbl>         <dbl>
-    ## 1  1970  310441408          4.77          6.46
-    ## 2  1971  331604896          4.43          4.95
-    ## 3  1973  401571808          5.65          6.25
-    ## 4  1974  421145216          5.01          6.27
-    ## 5  1975  432276512          2.67          4.76
-    ## 6  1976  471773408          3.64          5.44
-
-Findings
-
-Chart 1: Global Passenger Volume Growth Flying has truly entered its
-“Golden Age” of accessibility. The Chart below shows the transition from
-roughly 300 million to over 4 billon annual passengers.
-
-``` r
-ggplot(df, aes(x = Year, y = passengers)) +
-  geom_area(fill = "steelblue", alpha = 0.5) +
-  scale_y_continuous(labels = label_comma()) +
-  labs(title = "Total Global Air Passengers Carried (1970-2019)",
-       y = "Annual Passengers", 
-       x = "Year") +
-  theme_minimal()
+print(pub_year_plot)
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
 
-Visual 2: The Safety Maturity Trend Despite the congestion shown above,
-the “standardized risk” (deaths per million) has reached an L-shaped
-curve, flattening significantly after the late 1990s.
-
 ``` r
-ggplot(df, aes(x = Year, y = fatality_rate)) +
-  geom_line(color = "red", size = 1) +
-  geom_smooth(method = "loess", color = "black", linetype = "dashed", se = FALSE) +
-  labs(title = "Fatality Rate per Million Passengers",
-       y = "Deaths per Million", 
-       x = "Year") +
-  theme_minimal()
+ggsave("novels_by_century_bar_char.png", plot = pub_year_plot, width = 7, height = 5)
 ```
 
-    ## Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
-    ## ℹ Please use `linewidth` instead.
-    ## This warning is displayed once every 8 hours.
-    ## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-    ## generated.
+``` r
+#ANALYSIS QUESTION 2: Is there a relationship between a novel's genre and its Goodreads Average Rating?
+
+top_genres <- df |>
+  count(genre, sort = TRUE)|>
+  slice_head(n = 5)|>
+  pull(genre)
+
+df_top_genres <- df |>
+  filter(genre %in% top_genres)
+
+df_top_genres$genre <- factor(df_top_genres$genre, levels = rev(top_genres))
+```
+
+``` r
+#VISUAL 2: BOX PLOT OF AVERAGE RATING BY TOP 5 GENRE
+
+genre_rating_plot <- ggplot(df_top_genres, aes(x = gr_avg_rating, y = genre, fill = genre)) +
+  geom_boxplot() +
+  labs(
+    title = "Goodreads Average Taing Distribtuion for Top 5 Genres",
+    x = "Goodreads Average Rating",
+    y = "Genre",
+    fill = "genre"
+  ) +
+  scale_x_continuous(limits = c(3.5, 4.5), breaks = seq(3.5, 4.5, 0.1)) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+print(genre_rating_plot)
+```
+
+    ## Warning: Removed 19 rows containing non-finite outside the scale range
+    ## (`stat_boxplot()`).
+
+![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+
+``` r
+ggsave("avg_rating_by_top_genre_boxplot.png", plot = genre_rating_plot, width = 7, height = 5)
+```
+
+    ## Warning: Removed 19 rows containing non-finite outside the scale range
+    ## (`stat_boxplot()`).
+
+``` r
+#ANALYSIS QUESTION 3: Has the original language of the top novels shifted over time?
+
+languages_of_interest <- c("English", "French", "Russian", "German", "Spanish")
+
+df_lang_grouped <- df |>
+  mutate(
+    orig_lang_grouped = case_when(
+      orig_lang %in% languages_of_interest ~ orig_lang,
+      TRUE ~ "Other"
+    )
+  )
+
+lang_century_counts <- df_lang_grouped |>
+  group_by(publication_century, orig_lang_grouped) |>
+  count(name = "novel_count") |>
+  ungroup() 
+```
+
+``` r
+#VISUAL 3: STACKED BAR CHART OF LANGUAGE BY PUBLICATION CENTURY
+
+lang_dominance_plot <- ggplot(lang_century_counts, aes(x = publication_century, y = novel_count, fill = orig_lang_grouped)) +
+  geom_bar(stat = "identity", position =  "stack") +
+  labs(
+    title = "Original Language Distribution of Top Novels by Century",
+    subtitle = "English-language novels dominate from the 20th Century onwards.",
+    x = "Publication Century",
+    y = "Number of Novels",
+    fill = "Original Language"
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+print(lang_dominance_plot)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+
+``` r
+ggsave("lang_dominance_by_century_stacked_bar.png", plot = lang_dominance_plot, width = 8, height = 6)
+```
+
+``` r
+#ANALYSIS QUESTION 4: Does the average rating (gr_avg_rating) or library holdings (oclc_holdings) correlate with age (pub_year)?
+
+#VISUAL 4A: SCATTER PLOT OF PUBLICATION YEAR VS GOODREADS AVERAGE RATING
+age_rating_plot <- ggplot(df, aes(x = pub_year, y = gr_avg_rating)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", col = "red") +
+  labs(
+    title = "Goodreads Average Rating vs. Publication Year",
+    subtitle = "A slight trend suggests older books may have higher average ratings. ",
+    x = "Publication Year",
+    y = "Goodreads Average Rating"
+  ) + 
+  theme_minimal()
+
+print(age_rating_plot)
+```
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-![](README_files/figure-gfm/unnamed-chunk-4-1.png)<!-- --> Table:
-Comparison by Decade The following table summarizes the data using
-decadal averages to highlight the long-term shifts in scale and safety.
+![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
 ``` r
-df %>%
-  mutate(Decade = paste0(floor(Year/10)*10, "s")) %>%
-  group_by(Decade) %>%
-  summarise(
-    Avg_Passengers_Billions = round(mean(passengers)/1e9, 2),
-    Avg_Fatality_Rate = round(mean(fatality_rate), 2)
-  ) %>%
-  kable(caption = "Growth in Global Flight vs. Standardization of Safety Risk")
+ggsave("age_vs_avg_rating_scatter.png", plot = age_rating_plot, width = 7, height = 5
+       )
 ```
 
-| Decade | Avg_Passengers_Billions | Avg_Fatality_Rate |
-|:-------|------------------------:|------------------:|
-| 1970s  |                    0.46 |              3.82 |
-| 1980s  |                    0.78 |              1.72 |
-| 1990s  |                    1.29 |              0.97 |
-| 2000s  |                    1.92 |              0.46 |
-| 2010s  |                    3.45 |              0.15 |
-| 2020s  |                    1.81 |              0.17 |
+    ## `geom_smooth()` using formula = 'y ~ x'
 
-Growth in Global Flight vs. Standardization of Safety Risk
+``` r
+#VISUAL 4B: SCATTER PLOT OF PUBLICATION YEAR VS. OCLC HOLDINGS
 
-Curiosity & Scepticism Scepticism: One might wonder if better safety is
-just a result of luck or bigger planes. However, our internal comparison
-of fatality rates against accident_rate shows that actual technical
-failures (accidents per million flights) have fallen alongside passenger
-deaths. This confirms that systemic engineering and regulation—rather
-than chance—are driving these trends.
+age_holdings_plot <- ggplot(df, aes (x = pub_year, y = oclc_holdings_clean)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", col = "red") +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "OCLC Holdings vs. Publication Year",
+    subtitle = "OCLC Holdings are generally higher for older books, suggesting they have 'stood the test of time'.",
+    x = "Publication Year",
+    y = "OCLC Holdings (Number of Libraries Holding the Book)"
+  ) +
+  theme_minimal()
 
-Conclusion Aviation is significantly safer today than at any point in
-the 20th century. While we fly 15 times more than our predecessors in
-the 1970s, our individual risk is a fraction of what it was then. Future
-research should look into whether modern pilot shortages or extreme
-weather patterns might threaten this stability.
+print(age_holdings_plot)
+```
+
+    ## `geom_smooth()` using formula = 'y ~ x'
+
+    ## Warning: Removed 5 rows containing non-finite outside the scale range
+    ## (`stat_smooth()`).
+
+    ## Warning: Removed 5 rows containing missing values or values outside the scale range
+    ## (`geom_point()`).
+
+![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+
+``` r
+ggsave("age_vs_holdings_scatter.png", plot = age_holdings_plot, width = 7, height = 5)
+```
+
+    ## `geom_smooth()` using formula = 'y ~ x'
+
+    ## Warning: Removed 5 rows containing non-finite outside the scale range (`stat_smooth()`).
+    ## Removed 5 rows containing missing values or values outside the scale range
+    ## (`geom_point()`).
