@@ -1,5 +1,5 @@
 ---
-title: ""
+title: "Historical Analysis of Novels"
 author: "Madison McCann"
 date: "2025-12-08"
 output: github_document
@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+library(ggplot2)
 
 df <- read.csv("top-500-novels-metadata_2025-01-11.csv")
 
@@ -27,6 +28,12 @@ df <- df |>
 
 century_order <- c("17th Century and Earlier", "18th Century", "19th Century", "20th Century", "21st Century")
 df$publication_century <- factor(df$publication_century, levels = century_order, ordered = TRUE)
+
+df <- df |>
+  mutate(
+    oclc_holdings_clean = as.numeric(gsub(",", "", as.character(oclc_holdings))),
+    gr_num_ratings_clean = as.numeric(gsub(",", "", gr_num_ratings))
+  )
 
 ```
 
@@ -57,6 +64,8 @@ pub_year_plot <- ggplot(century_counts, aes(x = publication_century, y = novel_c
     legend.position = "none"
   )
 
+print(pub_year_plot)
+
 ggsave("novels_by_century_bar_char.png", plot = pub_year_plot, width = 7, height = 5)
 
 ```
@@ -82,8 +91,102 @@ df_top_genres$genre <- factor(df_top_genres$genre, levels = rev(top_genres))
 genre_rating_plot <- ggplot(df_top_genres, aes(x = gr_avg_rating, y = genre, fill = genre)) +
   geom_boxplot() +
   labs(
-    title = "Goodreads Average Taing Distribtuion for Top 5 Genres"
+    title = "Goodreads Average Taing Distribtuion for Top 5 Genres",
+    x = "Goodreads Average Rating",
+    y = "Genre",
+    fill = "genre"
+  ) +
+  scale_x_continuous(limits = c(3.5, 4.5), breaks = seq(3.5, 4.5, 0.1)) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+print(genre_rating_plot)
+
+ggsave("avg_rating_by_top_genre_boxplot.png", plot = genre_rating_plot, width = 7, height = 5)
+
+```
+
+```{r}
+#ANALYSIS QUESTION 3: Has the original language of the top novels shifted over time?
+
+languages_of_interest <- c("English", "French", "Russian", "German", "Spanish")
+
+df_lang_grouped <- df |>
+  mutate(
+    orig_lang_grouped = case_when(
+      orig_lang %in% languages_of_interest ~ orig_lang,
+      TRUE ~ "Other"
+    )
   )
+
+lang_century_counts <- df_lang_grouped |>
+  group_by(publication_century, orig_lang_grouped) |>
+  count(name = "novel_count") |>
+  ungroup() 
+
+```
+
+```{r}
+#VISUAL 3: STACKED BAR CHART OF LANGUAGE BY PUBLICATION CENTURY
+
+lang_dominance_plot <- ggplot(lang_century_counts, aes(x = publication_century, y = novel_count, fill = orig_lang_grouped)) +
+  geom_bar(stat = "identity", position =  "stack") +
+  labs(
+    title = "Original Language Distribution of Top Novels by Century",
+    subtitle = "English-language novels dominate from the 20th Century onwards.",
+    x = "Publication Century",
+    y = "Number of Novels",
+    fill = "Original Language"
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+print(lang_dominance_plot)
+
+ggsave("lang_dominance_by_century_stacked_bar.png", plot = lang_dominance_plot, width = 8, height = 6)
+
+```
+```{r}
+#ANALYSIS QUESTION 4: Does the average rating (gr_avg_rating) or library holdings (oclc_holdings) correlate with age (pub_year)?
+
+#VISUAL 4A: SCATTER PLOT OF PUBLICATION YEAR VS GOODREADS AVERAGE RATING
+age_rating_plot <- ggplot(df, aes(x = pub_year, y = gr_avg_rating)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", col = "red") +
+  labs(
+    title = "Goodreads Average Rating vs. Publication Year",
+    subtitle = "A slight trend suggests older books may have higher average ratings. ",
+    x = "Publication Year",
+    y = "Goodreads Average Rating"
+  ) + 
+  theme_minimal()
+
+print(age_rating_plot)
+ggsave("age_vs_avg_rating_scatter.png", plot = age_rating_plot, width = 7, height = 5
+       )
+```
+
+```{r}
+#VISUAL 4B: SCATTER PLOT OF PUBLICATION YEAR VS. OCLC HOLDINGS
+
+age_holdings_plot <- ggplot(df, aes (x = pub_year, y = oclc_holdings_clean)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", col = "red") +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "OCLC Holdings vs. Publication Year",
+    subtitle = "OCLC Holdings are generally higher for older books, suggesting they have 'stood the test of time'.",
+    x = "Publication Year",
+    y = "OCLC Holdings (Number of Libraries Holding the Book)"
+  ) +
+  theme_minimal()
+
+print(age_holdings_plot)
+ggsave("age_vs_holdings_scatter.png", plot = age_holdings_plot, width = 7, height = 5)
+
 ```
 
 
