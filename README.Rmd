@@ -74,6 +74,7 @@ ggsave("novels_by_century_bar_char.png", plot = pub_year_plot, width = 7, height
 #ANALYSIS QUESTION 2: Is there a relationship between a novel's genre and its Goodreads Average Rating?
 
 top_genres <- df |>
+  filter(genre != "") |> 
   count(genre, sort = TRUE)|>
   slice_head(n = 5)|>
   pull(genre)
@@ -83,6 +84,7 @@ df_top_genres <- df |>
 
 df_top_genres$genre <- factor(df_top_genres$genre, levels = rev(top_genres))
 
+
 ```
 
 ```{r}
@@ -91,7 +93,7 @@ df_top_genres$genre <- factor(df_top_genres$genre, levels = rev(top_genres))
 genre_rating_plot <- ggplot(df_top_genres, aes(x = gr_avg_rating, y = genre, fill = genre)) +
   geom_boxplot() +
   labs(
-    title = "Goodreads Average Taing Distribtuion for Top 5 Genres",
+    title = "Goodreads Average Rating Distribtuion for Top 5 Genres",
     x = "Goodreads Average Rating",
     y = "Genre",
     fill = "genre"
@@ -155,7 +157,7 @@ ggsave("lang_dominance_by_century_stacked_bar.png", plot = lang_dominance_plot, 
 #VISUAL 4A: SCATTER PLOT OF PUBLICATION YEAR VS GOODREADS AVERAGE RATING
 age_rating_plot <- ggplot(df, aes(x = pub_year, y = gr_avg_rating)) +
   geom_point(alpha = 0.6) +
-  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "lm", col = "purple") +
   labs(
     title = "Goodreads Average Rating vs. Publication Year",
     subtitle = "A slight trend suggests older books may have higher average ratings. ",
@@ -189,4 +191,85 @@ ggsave("age_vs_holdings_scatter.png", plot = age_holdings_plot, width = 7, heigh
 
 ```
 
+```{r}
+# ANALYSIS QUESTION 5: How has the number of Goodreads rating for top-ranked novels changed over time, and what is the distribution of the top-ranked novel's publication years by genre?
+
+# VISUAL 5A: SCATTER PLOT OF PUBLICATION YEAR VS GOODREADS NUMBER OF RATINGS (gr_num_ratings_clean)
+
+age_ratings_count_plot <- ggplot(df, aes(x = pub_year, y = gr_num_ratings_clean)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", col = "darkred") +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "Goodreads Total Number of Ratings vs. Publication Year",
+    subtitle = "Newer books tend to have a higher count of total ratings, indicating greater recent popularity.",
+    x = "Publication Year",
+    y = "Goodreads Total Number of Ratings"
+  ) +
+  theme_minimal()
+  
+  print(age_ratings_count_plot)
+  
+  ggsave("scatter_publication_goodreads.png", plot = age_ratings_count_plot, width = 7, height = 5)
+```
+
+```{r}
+# VISUAL 5B: DISTRIBUTION OF PUBLICATION CENTURY BY TOP 5 GENRES
+
+genre_century_counts <- df_top_genres |>
+  group_by(publication_century, genre) |>
+  count(name = "novel_count") |>
+  ungroup()
+
+genre_century_plot <- ggplot(genre_century_counts, aes(x = publication_century, y = novel_count, fill = genre)) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(
+    title = "Distribution of Top 5 Genres by Publication Century",
+    subtitle = "Certain genres show concentrations in specific centuries.",
+    x = "Publication Century",
+    y = "Number of Novels",
+    fill = "Genre"
+  ) +
+  scale_fill_brewer(palette = "Set1") + 
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+print(genre_century_plot)
+
+ggsave("distrib_top_genres_bar.png", plot = genre_century_plot, width = 7, height = 5)
+
+```
+```{r}
+# ANALYSIS QUESTION 6: Is there a correlation between a novel's long-term institutional recognition (OCLC Holdings) and its modern-day popularity (Goodreads Total Ratings)?
+
+correlation_output <- df |>
+  summarise(
+    correlation = cor(oclc_holdings_clean, gr_num_ratings_clean, use = "complete.obs")
+  )
+print("Correlation between OCLC Holdings and Goodreads Total Ratings:")
+print(correlation_output)
+
+```
+
+```{r}
+# VISUAL 6: SCATTER PLOT OF OCLC HOLDINGS VS. GOODREADS TOTAL RATINGS
+holdings_vs_ratings_plot <- ggplot(df, aes(x = oclc_holdings_clean, y = gr_num_ratings_clean)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", col = "blue") +
+  scale_x_continuous(labels = scales::comma) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "OCLC Holdings vs. Goodreads Total Ratings",
+    subtitle = "A moderate positive correlation suggests that historically recognized books also achieve modern mass appeal.",
+    x = "OCLC Holdings (Number of Libraries Holding the Book)",
+    y = "Goodreads Total Number of Ratings"
+  ) +
+  theme_minimal()
+
+print(holdings_vs_ratings_plot)
+# Corrected plot object name:
+ggsave("scatter_holdings_goodread_ratings.png", plot = holdings_vs_ratings_plot, width = 7, height = 5)
+```
 
