@@ -1,5 +1,5 @@
 ---
-title: "Historical Analysis of Novels"
+title: "Historical Analysis of Novels: Success Across the Centuries"
 author: "Madison McCann"
 date: "2025-12-08"
 output: github_document
