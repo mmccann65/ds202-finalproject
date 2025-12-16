@@ -1,9 +1,54 @@
-Historical Analysis of Novels
+Historical Analysis of Novels: Success Across the Centuries
 ================
 Madison McCann
 2025-12-08
 
+## Introduction
+
+This report explores the historical and temporal trends ingrained within
+a curated list of the world’s top 500 novels. The primary goal is to
+understand how the metrics of literary success institutional recognition
+(library holdings), lasting critical acclaim (average rating), and
+modern mass appeal (total ratings) have changed over time and across
+different languages and genres.
+
+The historical analysis focuses on answering: **What defines a “great”
+novel, and does that definition shift with the century?** We will
+compare long-term recognition (OCLC Holdings) with short-term popularity
+(Goodreads Ratings) to critically evaluate the factors contributing to a
+novel’s legacy. This systematic analysis will provide a clear roadmap
+through the data’s historical narrative, culminating in a synthesis of
+findings on literary endurance.
+
+## Data Description and Preparation
+
+The analysis is based on the **`top-500-novels-metadata.csv`** dataset,
+a publicly accessible and highly relevant collection of metadata for 500
+novels widely considered to be among the greatest. The data is
+particularly interesting as it combines traditional measures of
+influence with modern metrics of engagement.
+
+### Table: Key Variables and Roles
+
+| Variable | Description | Role in Analysis |
+|:---|:---|:---|
+| `pub_year` | The original publication year of the novel. | Primary temporal variable to track historical trends. |
+| `publication_century` | Categorical variable (17th Century and Earlier through 21st Century). | Used for historical grouping and visualization. |
+| `genre` | The primary genre of the novel. | Used to analyze popularity distribution across literary categories. |
+| `orig_lang` | The original language of publication. | Used to track the dominance and shift of literary cultures over time. |
+| `oclc_holdings_clean` | The number of library holdings. | Measure of **historical endurance and institutional importance**. |
+| `gr_avg_rating` | Goodreads average user rating. | Measure of **lasting critical quality**. |
+| `gr_num_ratings_clean` | Goodreads total number of ratings. | Measure of **modern mass appeal and recent visibility**. |
+
+Data cleaning involved converting the `oclc_holdings` and
+`gr_num_ratings` from character strings with commas into numeric
+variables (`oclc_holdings_clean` and `gr_num_ratings_clean`) to
+facilitate quantitative analysis.
+
+## Reproducibility and Data Cleaning
+
 ``` r
+#load library
 library(tidyverse)
 ```
 
@@ -21,8 +66,10 @@ library(tidyverse)
 ``` r
 library(ggplot2)
 
+#read the data
 df <- read.csv("top-500-novels-metadata_2025-01-11.csv")
 
+#create the categorical publication_century variable
 df <- df |>
   mutate(
     publication_century = case_when(
@@ -34,9 +81,11 @@ df <- df |>
     )
   )
 
+#set the correct factor order for the century variable
 century_order <- c("17th Century and Earlier", "18th Century", "19th Century", "20th Century", "21st Century")
 df$publication_century <- factor(df$publication_century, levels = century_order, ordered = TRUE)
 
+#clean the numeric columns (oclc_holdings and gr_num_ratings)
 df <- df |>
   mutate(
     oclc_holdings_clean = as.numeric(gsub(",", "", as.character(oclc_holdings))),
@@ -44,9 +93,14 @@ df <- df |>
   )
 ```
 
-``` r
-#ANALYSIS QUESTION 1: How has the distribution of top-ranked novel's publication years changed over time?
+## Main Analysis: Systematic Historical Exploration
 
+### QUESTION 1: How has the distribution of top-ranked novel’s publication year changed over time?
+
+This initial analysis establishes the temporal focus of the list,
+revealing a concentration of literary recognition.
+
+``` r
 century_counts <- df |>
   count(publication_century, name = "novel_count")
 
@@ -66,8 +120,13 @@ print (century_counts)
     ## 4             20th Century         294
     ## 5             21st Century          80
 
+The data shows a clear skew toward modern works, with the 20th Century
+accounting for the majority of the top 500 novels (r
+twentieth_century_count novels). This suggests that the selection
+criteria favor relatively recent recognition rather than ancient
+classics.
+
 ``` r
-#VISUAL 1: BAR CHART OF NOVELS BY PUBLICATION CENTURY
 pub_year_plot <- ggplot(century_counts, aes(x = publication_century, y = novel_count, fill = publication_century)) +
   geom_bar(stat = "identity") +
   geom_text(aes(label = novel_count), vjust = -0.5, size = 3) +
@@ -92,10 +151,14 @@ print(pub_year_plot)
 ggsave("novels_by_century_bar_char.png", plot = pub_year_plot, width = 7, height = 5)
 ```
 
-``` r
-#ANALYSIS QUESTION 2: Is there a relationship between a novel's genre and its Goodreads Average Rating?
+### QUESTION 2: Is there a relationship between a novel’s genre and its Goodreads Average Rating?
 
+We explore whether certain genres command higher critical ratings than
+others among the top-tier novels.
+
+``` r
 top_genres <- df |>
+  filter(genre != "") |> 
   count(genre, sort = TRUE)|>
   slice_head(n = 5)|>
   pull(genre)
@@ -107,12 +170,10 @@ df_top_genres$genre <- factor(df_top_genres$genre, levels = rev(top_genres))
 ```
 
 ``` r
-#VISUAL 2: BOX PLOT OF AVERAGE RATING BY TOP 5 GENRE
-
 genre_rating_plot <- ggplot(df_top_genres, aes(x = gr_avg_rating, y = genre, fill = genre)) +
   geom_boxplot() +
   labs(
-    title = "Goodreads Average Taing Distribtuion for Top 5 Genres",
+    title = "Goodreads Average Rating Distribtuion for Top 5 Genres",
     x = "Goodreads Average Rating",
     y = "Genre",
     fill = "genre"
@@ -136,9 +197,18 @@ ggsave("avg_rating_by_top_genre_boxplot.png", plot = genre_rating_plot, width = 
     ## Warning: Removed 19 rows containing non-finite outside the scale range
     ## (`stat_boxplot()`).
 
-``` r
-#ANALYSIS QUESTION 3: Has the original language of the top novels shifted over time?
+The box plot shows that while all top genres have high ratings,
+Bildungsroman and History genres tend to have a higher median and
+tighter interquartile range, suggesting more consistent critical
+approval compared to broader genres like Fantasy and Romance, which show
+a wider range of ratings.
 
+### QUESTION 3: Has the original language of the top novels shifted over time?
+
+This analysis uses a stacked bar chart to identify the historical
+dominance of different literary cultures.
+
+``` r
 languages_of_interest <- c("English", "French", "Russian", "German", "Spanish")
 
 df_lang_grouped <- df |>
@@ -156,8 +226,6 @@ lang_century_counts <- df_lang_grouped |>
 ```
 
 ``` r
-#VISUAL 3: STACKED BAR CHART OF LANGUAGE BY PUBLICATION CENTURY
-
 lang_dominance_plot <- ggplot(lang_century_counts, aes(x = publication_century, y = novel_count, fill = orig_lang_grouped)) +
   geom_bar(stat = "identity", position =  "stack") +
   labs(
@@ -182,13 +250,22 @@ print(lang_dominance_plot)
 ggsave("lang_dominance_by_century_stacked_bar.png", plot = lang_dominance_plot, width = 8, height = 6)
 ```
 
-``` r
-#ANALYSIS QUESTION 4: Does the average rating (gr_avg_rating) or library holdings (oclc_holdings) correlate with age (pub_year)?
+The plot clearly demonstrates that non-English languages (French,
+Russian, German, Spanish) held significant representation in the 19th
+Century and earlier, but English-language novels achieve near-total
+dominance in the 20th and 21st Centuries within this list.
 
-#VISUAL 4A: SCATTER PLOT OF PUBLICATION YEAR VS GOODREADS AVERAGE RATING
+### QUESTION 4: Does the average rating or library holdings of a book correlate with its age?
+
+This section begins the critical verification process by comparing two
+different metrics of enduring success against the publication year.
+
+Goodreads Average Rating vs. Publication Year
+
+``` r
 age_rating_plot <- ggplot(df, aes(x = pub_year, y = gr_avg_rating)) +
   geom_point(alpha = 0.6) +
-  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "lm", col = "purple") +
   labs(
     title = "Goodreads Average Rating vs. Publication Year",
     subtitle = "A slight trend suggests older books may have higher average ratings. ",
@@ -211,9 +288,9 @@ ggsave("age_vs_avg_rating_scatter.png", plot = age_rating_plot, width = 7, heigh
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-``` r
-#VISUAL 4B: SCATTER PLOT OF PUBLICATION YEAR VS. OCLC HOLDINGS
+OCLC Holdings vs. Publication Year
 
+``` r
 age_holdings_plot <- ggplot(df, aes (x = pub_year, y = oclc_holdings_clean)) +
   geom_point(alpha = 0.6) +
   geom_smooth(method = "lm", col = "red") +
@@ -248,3 +325,185 @@ ggsave("age_vs_holdings_scatter.png", plot = age_holdings_plot, width = 7, heigh
     ## Warning: Removed 5 rows containing non-finite outside the scale range (`stat_smooth()`).
     ## Removed 5 rows containing missing values or values outside the scale range
     ## (`geom_point()`).
+
+Both gr_avg_rating and oclc_holdings show a negative relationship with
+publication year (meaning a positive relationship with age). This
+confirms the hypothesis that novels that have endured the “test of time”
+tend to be both more widely held by institutions and have a slightly
+higher average user rating.
+
+### QUESTION 5: How has the number of Goodreads ratings for top-ranked novels changed over time, and what is the distribution of the top-rated novels’ publication years by genre?
+
+This adds the third and most current popularity metric
+(gr_num_ratings_clean) to verify the historical findings and links genre
+to time.
+
+Goodreads Total Number of Ratings vs. Publication Year
+
+``` r
+age_ratings_count_plot <- ggplot(df, aes(x = pub_year, y = gr_num_ratings_clean)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", col = "darkred") +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "Goodreads Total Number of Ratings vs. Publication Year",
+    subtitle = "Newer books tend to have a higher count of total ratings, indicating greater recent popularity.",
+    x = "Publication Year",
+    y = "Goodreads Total Number of Ratings"
+  ) +
+  theme_minimal()
+  
+  print(age_ratings_count_plot)
+```
+
+    ## `geom_smooth()` using formula = 'y ~ x'
+
+![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+
+``` r
+  ggsave("scatter_publication_goodreads.png", plot = age_ratings_count_plot, width = 7, height = 5)
+```
+
+    ## `geom_smooth()` using formula = 'y ~ x'
+
+The trend here is the inverse of Visuals 4A and 4B. Newer books (higher
+pub_year) have a significantly higher count of total ratings. This
+highlights a key critical finding: Endurance/Quality (Holdings, Avg
+Rating) is favored by age, but sheer Volume/Visibility (Total Ratings)
+is favored by recent publications.
+
+Distribution of Top 5 Genres by Publication Century
+
+``` r
+genre_century_counts <- df_top_genres |>
+  group_by(publication_century, genre) |>
+  count(name = "novel_count") |>
+  ungroup()
+
+genre_century_plot <- ggplot(genre_century_counts, aes(x = publication_century, y = novel_count, fill = genre)) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(
+    title = "Distribution of Top 5 Genres by Publication Century",
+    subtitle = "Certain genres show concentrations in specific centuries.",
+    x = "Publication Century",
+    y = "Number of Novels",
+    fill = "Genre"
+  ) +
+  scale_fill_brewer(palette = "Set1") + 
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+print(genre_century_plot)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+
+``` r
+ggsave("distrib_top_genres_bar.png", plot = genre_century_plot, width = 7, height = 5)
+```
+
+### QUESTION 6: Is there a correlation between a novel’s long-term institutional recognition (OCLC Holdings) and its modern-day popularity (Goodreads Total Ratings)?
+
+This is the final verification step that compares the two strongest
+measures of success that are independent of publication year, using a
+formal correlation test and visualization.
+
+Correlation Test
+
+``` r
+correlation_output <- df |>
+  summarise(
+    correlation = cor(oclc_holdings_clean, gr_num_ratings_clean, use = "complete.obs")
+  )
+print("Correlation between OCLC Holdings and Goodreads Total Ratings:")
+```
+
+    ## [1] "Correlation between OCLC Holdings and Goodreads Total Ratings:"
+
+``` r
+print(correlation_output)
+```
+
+    ##   correlation
+    ## 1   0.2758371
+
+The correlation coefficient between OCLC Holdings and Goodreads Total
+Ratings is 0.276
+
+OCLC Holdings vs. Goodreads Total Ratings Plot
+
+``` r
+holdings_vs_ratings_plot <- ggplot(df, aes(x = oclc_holdings_clean, y = gr_num_ratings_clean)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", col = "blue") +
+  scale_x_continuous(labels = scales::comma) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "OCLC Holdings vs. Goodreads Total Ratings",
+    subtitle = "A moderate positive correlation suggests that historically recognized books also achieve modern mass appeal.",
+    x = "OCLC Holdings (Number of Libraries Holding the Book)",
+    y = "Goodreads Total Number of Ratings"
+  ) +
+  theme_minimal()
+
+print(holdings_vs_ratings_plot)
+```
+
+    ## `geom_smooth()` using formula = 'y ~ x'
+
+    ## Warning: Removed 5 rows containing non-finite outside the scale range
+    ## (`stat_smooth()`).
+
+    ## Warning: Removed 5 rows containing missing values or values outside the scale range
+    ## (`geom_point()`).
+
+![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+
+``` r
+# Corrected plot object name:
+ggsave("scatter_holdings_goodread_ratings.png", plot = holdings_vs_ratings_plot, width = 7, height = 5)
+```
+
+    ## `geom_smooth()` using formula = 'y ~ x'
+
+    ## Warning: Removed 5 rows containing non-finite outside the scale range (`stat_smooth()`).
+    ## Removed 5 rows containing missing values or values outside the scale range
+    ## (`geom_point()`).
+
+## Conclusion
+
+The analysis of the top 500 novels reveals a shifting narrative about
+literary greatness. Although the full list shows a significant temporal
+bias, heavily favoring the 20th and 21st Centuries, the most enduring
+titles, measured by institutional recognition (OCLC Holdings) and
+consistent critical quality (Average Goodreads Rating), are often older
+works. This establishes a critical dichotomy: success defined by
+enduring quality is distinct from modern success by sheer volume and
+visibility, which heavily favors newer novels (Total Ratings Count).
+
+Historically, this literary landscape has also undergone a profound
+cultural shift, marked by the growing dominance of English-language
+novels from the 20th Century onward, overshadowing previously prominent
+languages like French and Russian. Ultimately, while certain genres like
+Bildungsroman and History maintain the most consistently high average
+ratings, the overall genre representation has changed, with the rise of
+Fantasy novels.
+
+## Ideas for Future Research
+
+Potential avenues for further research include:
+
+-Nationality vs. Language: Investigate whether non-English language
+authors are still represented, but through English translations, by
+analyzing the author_nationality variable.
+
+-The Role of Translation: Analyze the oclc_total_editions variable to
+see if novels originally published in non-English languages that were
+translated frequently show a stronger correlation between holdings and
+modern ratings.
+
+-Decade-Specific Trend Analysis: Use a 10-year set instead of 100-year
+centuries to generate a smoother, more detailed picture of how metrics
+like average rating have changed year-by-year.
